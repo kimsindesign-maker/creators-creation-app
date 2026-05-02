@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <title>Professional 2D CAD System</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #2c3e50; color: white; }
-        #toolbar { height: 50px; background: #34495e; display: flex; align-items: center; padding: 0 20px; }
+        body { margin: 0; overflow: hidden; background-color: #2c3e50; color: white; font-family: sans-serif; }
+        #toolbar { height: 50px; background: #34495e; display: flex; align-items: center; padding: 0 20px; z-index: 10; position: relative; }
         #cad-canvas { background-color: #000; display: block; cursor: crosshair; }
-        .info { position: absolute; bottom: 10px; right: 10px; font-size: 12px; color: #bdc3c7; }
+        .info { position: absolute; bottom: 10px; right: 10px; font-size: 12px; color: #bdc3c7; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -17,22 +17,75 @@
     </div>
     <canvas id="cad-canvas"></canvas>
     <div class="info">
-        機械設計デザイナー：最適化描画エンジン搭載
+        機械設計デザイナー：最適化描画エンジン搭載 | Parts: <span id="part-count">0</span>
     </div>
 
     <script>
         const canvas = document.getElementById('cad-canvas');
         const ctx = canvas.getContext('2d');
+        const partCountDisplay = document.getElementById('part-count');
         
+        // 1. データ構造：3,000点のパーツを格納する頑丈な配列
+        let shapes = [];
+        let isDrawing = false;
+        let startX, startY;
+
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight - 50;
+            draw(); // リサイズ時に再描画
         }
         window.addEventListener('resize', resize);
         resize();
 
-        // ここに3,000点のパーツ描画ロジックを実装していきます
-        console.log("CAD Engine Initialized.");
+        // 2. 高速描画エンジン：画面をクリアしてから全パーツを一気に描く
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // 掃除
+            ctx.strokeStyle = '#00ff00'; // 機械設計らしい緑色の線
+            ctx.lineWidth = 1;
+
+            shapes.forEach(shape => {
+                ctx.beginPath();
+                ctx.moveTo(shape.x1, shape.y1);
+                ctx.lineTo(shape.x2, shape.y2);
+                ctx.stroke();
+            });
+            partCountDisplay.innerText = shapes.length;
+        }
+
+        // 3. 操作ロジック：マウスイベントの最適化
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            startX = e.clientX;
+            startY = e.clientY - 50;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            // プレビュー描画（現在の線をリアルタイムで見せる）
+            draw();
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(e.clientX, e.clientY - 50);
+            ctx.setLineDash([5, 5]); // 下書きは破線
+            ctx.stroke();
+            ctx.setLineDash([]); 
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            // データを確定して配列に追加
+            shapes.push({
+                x1: startX,
+                y1: startY,
+                x2: e.clientX,
+                y2: e.clientY - 50
+            });
+            draw();
+        });
+
+        console.log("CAD Engine Updated: Stable Mode Enabled.");
     </script>
 </body>
 </html>

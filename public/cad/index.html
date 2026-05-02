@@ -2,79 +2,85 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Stable CAD Engine</title>
+    <title>High-Performance 2D CAD</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; color: #00ff00; }
-        canvas { display: block; }
-        #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 5px; border: 1px solid #00ff00; }
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; color: #00ff00; }
+        canvas { display: block; background: #000; cursor: crosshair; }
+        #stats { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #00ff00; font-family: monospace; }
     </style>
 </head>
 <body>
-    <div id="info">CAD ENGINE: ONLINE | PARTS: <span id="cnt">0</span></div>
-    <canvas id="cvs"></canvas>
+    <div id="stats">STATUS: ACTIVE | PARTS: <span id="cnt">0</span></div>
+    <canvas id="cad"></canvas>
 
     <script>
-        const cvs = document.getElementById('cvs');
-        const ctx = cvs.getContext('2d');
+        const canvas = document.getElementById('cad');
+        const ctx = canvas.getContext('2d');
         const cntDisp = document.getElementById('cnt');
 
         let lines = [];
         let drawing = false;
         let startX, startY, curX, curY;
-        let isRefreshed = true; // 描画の渋滞を防ぐ「信号機」
+        let ticking = false; // 描画の渋滞を防ぐ「安全装置」
 
         function resize() {
-            cvs.width = window.innerWidth;
-            cvs.height = window.innerHeight;
-            render();
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            draw();
         }
         window.addEventListener('resize', resize);
         resize();
 
-        function render() {
-            ctx.clearRect(0, 0, cvs.width, cvs.height);
+        function draw() {
+            ticking = false; // 描画枠を空ける
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 1. 確定した線を一気に描く（超軽量処理）
+            ctx.beginPath();
             ctx.strokeStyle = '#00ff00';
             ctx.lineWidth = 1;
-
-            // 確定済みの線を一括描画
-            ctx.beginPath();
-            for (let l of lines) {
-                ctx.moveTo(l.x1, l.y1);
-                ctx.lineTo(l.x2, l.y2);
+            for (let i = 0; i < lines.length; i++) {
+                ctx.moveTo(lines[i].x1, lines[i].y1);
+                ctx.lineTo(lines[i].x2, lines[i].y2);
             }
             ctx.stroke();
 
-            // プレビュー線
+            // 2. 今引いている線のプレビュー
             if (drawing) {
                 ctx.beginPath();
-                ctx.strokeStyle = '#fff';
+                ctx.strokeStyle = '#ffffff';
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(curX, curY);
                 ctx.stroke();
             }
             cntDisp.innerText = lines.length;
-            isRefreshed = true; // 描画完了
         }
 
-        cvs.addEventListener('mousedown', e => {
+        canvas.addEventListener('mousedown', e => {
             drawing = true;
             startX = e.clientX;
             startY = e.clientY;
+            curX = startX;
+            curY = startY;
         });
 
         window.addEventListener('mousemove', e => {
-            if (!drawing || !isRefreshed) return;
-            isRefreshed = false; // 前の描画が終わるまで次を拒否（フリーズ防止）
+            if (!drawing) return;
             curX = e.clientX;
             curY = e.clientY;
-            requestAnimationFrame(render);
+
+            // 重要：PCの描画能力に合わせて「間引く」処理。これで落ちなくなります。
+            if (!ticking) {
+                requestAnimationFrame(draw);
+                ticking = true;
+            }
         });
 
         window.addEventListener('mouseup', e => {
             if (!drawing) return;
             drawing = false;
             lines.push({x1: startX, y1: startY, x2: e.clientX, y2: e.clientY});
-            render();
+            draw();
         });
     </script>
 </body>

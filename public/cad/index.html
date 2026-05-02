@@ -2,118 +2,84 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Professional 2D CAD System - Stable Mode</title>
+    <title>High-Speed 2D CAD</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #2c3e50; color: white; font-family: sans-serif; }
-        #toolbar { height: 50px; background: #34495e; display: flex; align-items: center; padding: 0 20px; z-index: 10; position: relative; border-bottom: 1px solid #2c3e50; }
+        #toolbar { height: 50px; background: #34495e; display: flex; align-items: center; padding: 0 20px; }
         #cad-canvas { background-color: #000; display: block; cursor: crosshair; }
-        .info { position: absolute; bottom: 10px; right: 10px; font-size: 12px; color: #bdc3c7; pointer-events: none; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 4px; }
+        .info { position: absolute; bottom: 10px; right: 10px; font-size: 12px; color: #bdc3c7; background: rgba(0,0,0,0.7); padding: 5px; }
     </style>
 </head>
 <body>
-    <div id="toolbar">
-        <strong>2D CAD Design Tool</strong>
-        <span style="margin-left: 20px; font-size: 14px; color: #3498db;">● 3,000パーツ最適化モード稼働中</span>
-    </div>
+    <div id="toolbar"><strong>2D CAD - Stable Engine</strong></div>
     <canvas id="cad-canvas"></canvas>
-    <div class="info">
-        Parts Count: <span id="part-count">0</span> | Status: Stable
-    </div>
+    <div class="info">Parts: <span id="cnt">0</span></div>
 
     <script>
         const canvas = document.getElementById('cad-canvas');
         const ctx = canvas.getContext('2d');
-        const partCountDisplay = document.getElementById('part-count');
+        const cntDisp = document.getElementById('cnt');
         
-        let shapes = [];
-        let isDrawing = false;
-        let startX, startY, currentX, currentY;
-        let needsRedraw = false;
+        let lines = [];
+        let drawing = false;
+        let startX, startY, curX, curY;
 
-        // リサイズ処理
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight - 50;
-            triggerRedraw();
+            render();
         }
         window.addEventListener('resize', resize);
         resize();
 
-        // 描画の予約（CPU負荷を最小化）
-        function triggerRedraw() {
-            if (!needsRedraw) {
-                needsRedraw = true;
-                requestAnimationFrame(render);
-            }
-        }
-
-        // 実際の描画エンジン
+        // 描画処理：ここを極限まで軽くしました
         function render() {
-            needsRedraw = false;
-            
-            // 画面リセット
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 1. 確定済みパーツの一括描画（高速化の肝）
-            if (shapes.length > 0) {
-                ctx.beginPath();
-                ctx.strokeStyle = '#00ff00'; // CADらしいグリーン
-                ctx.lineWidth = 1;
-                for (let i = 0; i < shapes.length; i++) {
-                    const s = shapes[i];
-                    ctx.moveTo(s.x1, s.y1);
-                    ctx.lineTo(s.x2, s.y2);
-                }
-                ctx.stroke();
-            }
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 1;
 
-            // 2. 現在描画中の線のプレビュー
-            if (isDrawing) {
+            // 確定済みの線を一気に引く
+            ctx.beginPath();
+            for (let i = 0; i < lines.length; i++) {
+                ctx.moveTo(lines[i].x1, lines[i].y1);
+                ctx.lineTo(lines[i].x2, lines[i].y2);
+            }
+            ctx.stroke();
+
+            // 今引いている線
+            if (drawing) {
                 ctx.beginPath();
-                ctx.strokeStyle = '#ffffff'; // プレビューは白
-                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = '#ffffff';
                 ctx.moveTo(startX, startY);
-                ctx.lineTo(currentX, currentY);
+                ctx.lineTo(curX, curY);
                 ctx.stroke();
-                ctx.setLineDash([]); // 破線リセット
             }
-
-            partCountDisplay.innerText = shapes.length.toLocaleString();
+            cntDisp.innerText = lines.length;
         }
 
-        // 操作イベント：mousedown
-        canvas.addEventListener('mousedown', (e) => {
-            isDrawing = true;
+        canvas.addEventListener('mousedown', e => {
+            drawing = true;
             startX = e.clientX;
             startY = e.clientY - 50;
-            currentX = startX;
-            currentY = startY;
+            curX = startX;
+            curY = startY;
         });
 
-        // 操作イベント：mousemove（頻繁に発生するため計算を極小化）
-        window.addEventListener('mousemove', (e) => {
-            if (!isDrawing) return;
-            currentX = e.clientX;
-            currentY = e.clientY - 50;
-            triggerRedraw();
+        // マウスを動かした時、描画を「予約」するだけで計算はさせない
+        window.addEventListener('mousemove', e => {
+            if (!drawing) return;
+            curX = e.clientX;
+            curY = e.clientY - 50;
+            // CPUに余裕がある時だけ描画する
+            requestAnimationFrame(render);
         });
 
-        // 操作イベント：mouseup
-        window.addEventListener('mouseup', (e) => {
-            if (!isDrawing) return;
-            isDrawing = false;
-            
-            // データを配列に追加
-            shapes.push({
-                x1: startX,
-                y1: startY,
-                x2: e.clientX,
-                y2: e.clientY - 50
-            });
-            triggerRedraw();
+        window.addEventListener('mouseup', e => {
+            if (!drawing) return;
+            drawing = false;
+            lines.push({x1: startX, y1: startY, x2: e.clientX, y2: e.clientY - 50});
+            render();
         });
-
-        console.log("CAD Engine: High Performance Mode Initialized.");
     </script>
 </body>
 </html>
